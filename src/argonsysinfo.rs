@@ -1,6 +1,15 @@
+use serde::{Deserialize, Serialize};
 use std::fs::*;
 use std::io::{self, BufRead};
 use std::path::Path;
+
+#[allow(dead_code, unused_imports, unused_mut)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Response {
+    pub title: String,
+    pub headers: Vec<String>,
+    pub values: Vec<String>,
+}
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -48,33 +57,48 @@ pub fn argonsysinfo_getrootdev() -> String {
 //     }
 // }
 
-pub fn argonsysinfo_getram() {
-    if let Ok(lines) = read_lines("/proc/meminfo") {
-        let mut totalram = 0;
-        let mut totalfree = 0;
-        for line in lines {
-            let splitted: Vec<&str>;
-            if let Ok(data) = line {
-                splitted = data.split_whitespace().collect();
-                match splitted[0] {
-                    "MemTotal:" => totalram = splitted[1].parse().unwrap(),
-                    "MemFree:" => {
-                        let memfree: i32 = splitted[1].parse().unwrap();
-                        totalfree = totalfree + memfree;
-                    }
-                    "Buffers:" => {
-                        let memfree: i32 = splitted[1].parse().unwrap();
-                        totalfree = totalfree + memfree;
-                    }
-                    "Cached:" => {
-                        let memfree: i32 = splitted[1].parse().unwrap();
-                        totalfree = totalfree + memfree;
-                    }
-                    _ => continue,
-                }
+pub fn argonsysinfo_getram() -> Response {
+    let lines = read_lines("/proc/meminfo");
+    let mut totalram = 0;
+    let mut totalfree = 0;
+    let mut percent: f64 = 0.0;
+    // let mut result = HashMap::new();
+    for line in lines.unwrap() {
+        // println!("{}", line.unwrap());
+        let splitted: Vec<&str>;
+        let data = line.unwrap();
+        splitted = data.split_whitespace().collect();
+        match splitted[0] {
+            "MemTotal:" => totalram = splitted[1].parse().unwrap(),
+            "MemFree:" => {
+                let memfree: i32 = splitted[1].parse().unwrap();
+                totalfree = totalfree + memfree;
             }
+            "Buffers:" => {
+                let memfree: i32 = splitted[1].parse().unwrap();
+                totalfree = totalfree + memfree;
+            }
+            "Cached:" => {
+                let memfree: i32 = splitted[1].parse().unwrap();
+                totalfree = totalfree + memfree;
+            }
+            _ => continue,
         }
-        let percent: f64 = (totalfree as f64 / totalram as f64) * 100.0;
-        println!("{:.2}", percent);
+        percent = (totalfree as f64 / totalram as f64) * 100.0;
+    }
+    let headers = [
+        "Total".to_string(),
+        "Free".to_string(),
+        "Percent".to_string(),
+    ];
+    let values = [
+        totalram.to_string(),
+        totalfree.to_string(),
+        format!("{:.5}", percent.to_string()),
+    ];
+    Response {
+        title: "Memory".to_string(),
+        headers: headers.to_vec(),
+        values: values.to_vec(),
     }
 }
