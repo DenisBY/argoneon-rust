@@ -1,14 +1,31 @@
+#![allow(unused)]
+
 use serde::{Deserialize, Serialize};
 use std::fs::*;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-#[allow(dead_code, unused_imports, unused_mut)]
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Values {
+    String(Vec<String>),
+    Num(Vec<usize>),
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Response {
     pub title: String,
     pub headers: Vec<String>,
-    pub values: Vec<String>,
+    pub values: Values,
+}
+
+impl Response {
+    pub fn lowercase(&mut self) -> &Response {
+        self.title = (self.title).to_lowercase();
+        for header in &mut self.headers {
+            *header = header.to_lowercase();
+        }
+        self
+    }
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -19,8 +36,8 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
-pub fn argonsysinfo_getcputemp() -> i32 {
-    let contents: i32 = read_to_string("/sys/class/thermal/thermal_zone0/temp")
+pub fn argonsysinfo_getcputemp() -> u32 {
+    let contents: u32 = read_to_string("/sys/class/thermal/thermal_zone0/temp")
         .unwrap()
         .trim() // remove \n
         .parse() // convert to int
@@ -71,15 +88,15 @@ pub fn argonsysinfo_getram() -> Response {
         match splitted[0] {
             "MemTotal:" => totalram = splitted[1].parse().unwrap(),
             "MemFree:" => {
-                let memfree: i32 = splitted[1].parse().unwrap();
+                let memfree: u32 = splitted[1].parse().unwrap();
                 totalfree = totalfree + memfree;
             }
             "Buffers:" => {
-                let memfree: i32 = splitted[1].parse().unwrap();
+                let memfree: u32 = splitted[1].parse().unwrap();
                 totalfree = totalfree + memfree;
             }
             "Cached:" => {
-                let memfree: i32 = splitted[1].parse().unwrap();
+                let memfree: u32 = splitted[1].parse().unwrap();
                 totalfree = totalfree + memfree;
             }
             _ => continue,
@@ -99,6 +116,6 @@ pub fn argonsysinfo_getram() -> Response {
     Response {
         title: "Memory".to_string(),
         headers: headers.to_vec(),
-        values: values.to_vec(),
+        values: Values::String(values.to_vec()),
     }
 }
